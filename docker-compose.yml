@@ -1,0 +1,120 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: pay
+      POSTGRES_PASSWORD: pay
+      POSTGRES_DB: paydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pay -d paydb"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  kafka:
+    image: bitnami/kafka:3.7
+    environment:
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CFG_NUM_PARTITIONS: 6
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build: ./app
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://pay:pay@postgres:5432/paydb
+      KAFKA_BROKERS: kafka:9092
+      PAYMENTS_TOPIC: payments.events
+      PROCESSOR_WEBHOOK_SECRET: processor_webhook_secret_dev
+      SERVICE_BASE_URL: http://api:3000
+      NONCE_TTL_SECONDS: 600
+      HMAC_SKEW_SECONDS: 300
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    command: ["node", "src/api.js"]
+
+  outbox_publisher:
+    build: ./app
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://pay:pay@postgres:5432/paydb
+      KAFKA_BROKERS: kafka:9092
+      PAYMENTS_TOPIC: payments.events
+      OUTBOX_POLL_MS: 250
+      OUTBOX_BATCH_SIZE: 200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    command: ["node", "src/outbox_publisher.js"]
+
+  orchestrator:
+    build: ./app
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://pay:pay@postgres:5432/paydb
+      KAFKA_BROKERS: kafka:9092
+      PAYMENTS_TOPIC: payments.events
+      FAKE_PROCESSOR_URL: http://fake_processor:4000
+      SERVICE_BASE_URL: http://api:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      fake_processor:
+        condition: service_started
+    command: ["node", "src/orchestrator.js"]
+
+  fake_processor:
+    build: ./app
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      PROCESSOR_WEBHOOK_SECRET: processor_webhook_secret_dev
+      WEBHOOK_TARGET_URL: http://api:3000/webhooks/gateway
+      DEFAULT_OUTCOME: succeed
+    ports:
+      - "4000:4000"
+    command: ["node", "src/fake_processor.js"]
+
+  reconciler:
+    build: ./app
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://pay:pay@postgres:5432/paydb
+      FAKE_PROCESSOR_URL: http://fake_processor:4000
+      RECONCILE_EVERY_MS: 5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fake_processor:
+        condition: service_started
+    command: ["node", "src/reconciler.js"]

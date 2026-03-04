@@ -1,0 +1,21 @@
+{
+  "name": "payment-poc",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "api": "node src/api.js",
+    "publisher": "node src/outbox_publisher.js",
+    "orchestrator": "node src/orchestrator.js",
+    "processor": "node src/fake_processor.js",
+    "reconciler": "node src/reconciler.js",
+    "merchant:create": "node src/merchant_client.js create",
+    "merchant:get": "node src/merchant_client.js get",
+    "merchant:confirm": "node src/merchant_client.js confirm"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.11.5",
+    "uuid": "^9.0.1"
+  }
+}
