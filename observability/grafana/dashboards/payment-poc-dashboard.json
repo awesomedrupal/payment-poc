@@ -1,0 +1,56 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP Requests/sec",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"expr": "sum by (service, route, method) (rate(payment_poc_http_requests_total[1m]))", "legendFormat": "{{service}} {{method}} {{route}}"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP p95 latency (ms)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, service, route) (rate(payment_poc_http_request_duration_ms_bucket[5m])))", "legendFormat": "{{service}} {{route}}"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Payment transitions/sec",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "sum by (service, from_status, to_status, source) (rate(payment_poc_payment_transitions_total[1m]))", "legendFormat": "{{service}} {{from_status}}→{{to_status}} {{source}}"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Webhook duplicates/sec",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [{"expr": "sum by (service) (rate(payment_poc_webhook_duplicates_total[1m]))", "legendFormat": "{{service}}"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Outbox published/sec",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [{"expr": "sum by (service, event_type) (rate(payment_poc_outbox_rows_published_total[1m]))", "legendFormat": "{{service}} {{event_type}}"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Reconciliation corrections/sec",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [{"expr": "sum by (service) (rate(payment_poc_reconciliation_corrections_total[5m]))", "legendFormat": "{{service}}"}]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["payment", "poc", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-30m", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Payment POC Overview",
+  "version": 1
+}

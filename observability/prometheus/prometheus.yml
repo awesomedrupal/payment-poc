@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: api
+    static_configs:
+      - targets: ['api:3000']
+  - job_name: outbox_publisher
+    static_configs:
+      - targets: ['outbox_publisher:9101']
+  - job_name: orchestrator
+    static_configs:
+      - targets: ['orchestrator:9102']
+  - job_name: fake_processor
+    static_configs:
+      - targets: ['fake_processor:4000']
+  - job_name: reconciler
+    static_configs:
+      - targets: ['reconciler:9103']
